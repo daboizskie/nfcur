@@ -1,1 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NFCUR</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+</head>
+<body>
+  <!-- Hidden launch params for JS to read -->
+  <div id="launch-params"
+    data-uid="{{ launch_uid | e }}"
+    data-data="{{ launch_data | e }}"
+    data-type="{{ launch_type | e }}"
+    data-payload="{{ launch_payload | e }}"
+    hidden></div>
 
+  <!-- ── Top bar ───────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+        <span class="brand-name">NFCUR</span>
+        <span class="brand-tagline">NFC Universal Reader</span>
+      </div>
+      <div class="topbar-controls">
+        <span id="hw-badge" class="badge badge--idle" title="NFC hardware status">● Idle</span>
+        <button id="theme-toggle" class="icon-btn" title="Toggle dark/light mode" aria-label="Toggle theme">
+          <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Mode tabs ─────────────────────────────────────────── -->
+  <nav class="mode-tabs" role="tablist" aria-label="Modes">
+    <button class="tab active" data-tab="read" role="tab" aria-selected="true">Read</button>
+    <button class="tab" data-tab="edit" role="tab" aria-selected="false">Edit</button>
+    <button class="tab" data-tab="inspector" role="tab" aria-selected="false">Inspector</button>
+    <button class="tab" data-tab="history" role="tab" aria-selected="false">History</button>
+  </nav>
+
+  <main class="main-content">
+
+    <!-- ════════════════════════════════════
+         READ TAB
+    ═══════════════════════════════════════ -->
+    <section id="tab-read" class="tab-panel" role="tabpanel">
+
+      <!-- Scan controls -->
+      <div class="scan-controls card">
+        <div class="scan-status-row">
+          <div class="pulse-ring" id="pulse-ring"></div>
+          <span id="scan-status-text">Ready to scan</span>
+        </div>
+        <div class="scan-btn-group">
+          <button id="btn-scan" class="btn btn--primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 6.48 6.48 2 12 2"/><path d="M22 12c0 5.52-4.48 10-10 10"/><path d="M12 8v8M8 12h8"/><circle cx="12" cy="12" r="3"/></svg>
+            Scan Tag
+          </button>
+          <button id="btn-stop-scan" class="btn btn--ghost" hidden>Stop</button>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="chk-continuous"> Continuous scan
+        </label>
+        <div id="nfc-unavailable-notice" class="notice notice--warn" hidden>
+          <strong>Web NFC not available</strong> — Use the Inspector tab to paste raw hex/NDEF bytes, or program your tag to open this URL with <code>?uid=…&amp;data=…</code> query params.
+        </div>
+      </div>
+
+      <!-- Telemetry bar (hidden until scan) -->
+      <div id="telemetry-bar" class="telemetry-bar" hidden>
+        <div class="telem-item"><span class="telem-label">UID</span><span class="telem-val" id="t-uid">—</span><button class="copy-micro" data-copy-id="t-uid" title="Copy">⎘</button></div>
+        <div class="telem-item"><span class="telem-label">Manufacturer</span><span class="telem-val" id="t-mfr">—</span></div>
+        <div class="telem-item"><span class="telem-label">Chip</span><span class="telem-val" id="t-chip">—</span></div>
+        <div class="telem-item"><span class="telem-label">Records</span><span class="telem-val" id="t-recs">—</span></div>
+        <div class="telem-item"><span class="telem-label">Bytes</span><span class="telem-val" id="t-bytes">—</span></div>
+        <div class="telem-item"><span class="telem-label">Writable</span><span class="telem-val" id="t-writable">—</span></div>
+        <div class="telem-item"><span class="telem-label">Scanned</span><span class="telem-val" id="t-time">—</span></div>
+        <div class="telem-actions">
+          <button class="btn btn--sm" id="btn-export-json">Export JSON</button>
+          <button class="btn btn--sm" id="btn-export-txt">Download .txt</button>
+        </div>
+      </div>
+
+      <!-- UID detail card -->
+      <div id="uid-card" class="card" hidden>
+        <h3 class="card-title">UID / Serial Number</h3>
+        <div class="uid-grid">
+          <div class="uid-row"><span>Colon-Separated</span><code id="uid-colon">—</code><button class="copy-micro" data-copy-id="uid-colon" title="Copy">⎘</button></div>
+          <div class="uid-row"><span>Raw Hex</span><code id="uid-raw">—</code><button class="copy-micro" data-copy-id="uid-raw" title="Copy">⎘</button></div>
+          <div class="uid-row"><span>Reversed Hex</span><code id="uid-rev">—</code><button class="copy-micro" data-copy-id="uid-rev" title="Copy">⎘</button></div>
+          <div class="uid-row"><span>Decimal (BE)</span><code id="uid-dec-be">—</code><button class="copy-micro" data-copy-id="uid-dec-be" title="Copy">⎘</button></div>
+          <div class="uid-row"><span>Decimal (LE)</span><code id="uid-dec-le">—</code><button class="copy-micro" data-copy-id="uid-dec-le" title="Copy">⎘</button></div>
+          <div class="uid-row"><span>Byte Length</span><code id="uid-len">—</code></div>
+          <div class="uid-row"><span>Manufacturer</span><code id="uid-mfr">—</code></div>
+          <div class="uid-row"><span>Chip Type</span><code id="uid-chip">—</code></div>
+        </div>
+      </div>
+
+      <!-- Records list -->
+      <div id="records-container">
+        <!-- Injected by JS -->
+      </div>
+
+      <!-- Empty state -->
+      <div id="empty-state" class="empty-state">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="20" width="60" height="45" rx="6" stroke="currentColor" stroke-width="2.5" fill="none"/>
+          <path d="M24 36 Q40 26 56 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <path d="M30 44 Q40 38 50 44" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <circle cx="40" cy="51" r="3" fill="currentColor"/>
+        </svg>
+        <p>Tap <strong>Scan Tag</strong> to read an NFC tag,<br>or use the <strong>Inspector</strong> tab to paste raw data.</p>
+      </div>
+
+    </section>
+
+    <!-- ════════════════════════════════════
+         EDIT TAB
+    ═══════════════════════════════════════ -->
+    <section id="tab-edit" class="tab-panel" role="tabpanel" hidden>
+      <div id="edit-noscan" class="notice notice--info">
+        Scan a tag first (Read tab) to begin non-destructive editing.
+      </div>
+
+      <div id="edit-workspace" hidden>
+        <div class="card">
+          <div class="card-title-row">
+            <h3 class="card-title">Edit Records</h3>
+            <div class="byte-counter">
+              Payload: <strong id="edit-byte-count">0</strong> bytes
+              <span id="byte-warn" class="badge badge--warn" hidden>Near limit</span>
+            </div>
+          </div>
+          <div id="edit-records-list"><!-- injected --></div>
+          <div class="edit-add-row">
+            <select id="add-type-select">
+              <option value="text">Text record</option>
+              <option value="url">URL record</option>
+              <option value="json">JSON / MIME record</option>
+              <option value="raw">Raw hex bytes</option>
+            </select>
+            <button id="btn-add-record" class="btn btn--ghost">+ Add Record</button>
+          </div>
+        </div>
+
+        <div class="write-controls card">
+          <div class="uid-guard-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>UID Guard active — will only write to tag <strong id="write-uid-guard">—</strong></span>
+          </div>
+          <div class="write-btn-group">
+            <button id="btn-write" class="btn btn--primary">Write to Tag</button>
+            <button id="btn-restore" class="btn btn--danger">Restore Original</button>
+          </div>
+          <div id="write-status" class="write-status"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════
+         INSPECTOR TAB
+    ═══════════════════════════════════════ -->
+    <section id="tab-inspector" class="tab-panel" role="tabpanel" hidden>
+      <div class="card">
+        <h3 class="card-title">Raw Hex / NDEF Inspector</h3>
+        <p class="helper-text">Paste raw hex bytes from an external NFC reader, USB dongle, or NFC app. Spaces, colons, and dashes are stripped automatically.</p>
+        <div class="inspector-inputs">
+          <div class="input-group">
+            <label for="inp-uid">UID / Serial Number (hex)</label>
+            <div class="inp-row">
+              <input type="text" id="inp-uid" class="mono-input" placeholder="04:A2:3B:C1:D4:E5:F6" spellcheck="false">
+              <button class="btn btn--ghost" id="btn-decode-uid">Decode UID</button>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="inp-hex">NDEF / Raw Hex Data</label>
+            <div class="inp-row">
+              <textarea id="inp-hex" class="mono-input" rows="4" placeholder="03 1D D1 01 19 55 04 65 78 61 6D 70 6C 65 2E 63 6F 6D FE..." spellcheck="false"></textarea>
+              <button class="btn btn--ghost" id="btn-decode-hex">Decode</button>
+            </div>
+          </div>
+          <button id="btn-decode-server" class="btn btn--primary">Inspect via Server</button>
+        </div>
+      </div>
+
+      <div id="inspector-result" class="inspector-result" hidden>
+        <!-- Injected by JS -->
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════
+         HISTORY TAB
+    ═══════════════════════════════════════ -->
+    <section id="tab-history" class="tab-panel" role="tabpanel" hidden>
+      <div class="history-toolbar">
+        <input type="search" id="history-search" placeholder="Search history…" class="search-input">
+        <button id="btn-clear-history" class="btn btn--danger btn--sm">Clear All</button>
+      </div>
+      <div id="history-list">
+        <!-- injected -->
+      </div>
+      <div id="history-empty" class="empty-state" hidden>
+        <p>No scan history yet. Scanned tags appear here automatically.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
